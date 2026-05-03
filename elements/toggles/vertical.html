@@ -1,0 +1,38 @@
+<style>
+  .toggle-box {
+    display: flex;
+    gap: 10px;
+    color: white;
+    font-size: 40px;
+  }
+  .toggle {
+    width: 60px;
+    height: 120px;
+    background: #888;
+    border-radius: 20px;
+    position: relative;
+    cursor: pointer;
+  }
+  .circle {
+    width: 40px;
+    height: 40px;
+    background: white;
+    border-radius: 50%;
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    transition: 0.3s;
+  }
+  #vert-toggle:checked + .toggle .circle {
+    bottom: 70px;
+    background: #41a63c;
+  }
+</style>
+<div class="toggle-box">
+  N
+  <input type="checkbox" id="vert-toggle" hidden>
+  <label for="vert-toggle" class="toggle">
+    <div class="circle"></div>
+  </label>
+  FF
+</div>
