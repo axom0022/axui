@@ -1,0 +1,46 @@
+{
+  "loaders": [
+    "spinner.html",
+    "pulse.html"
+  ],
+  "cards": [
+    "profile.html",
+    "product.html"
+  ],
+  "buttons": [
+    "gradient.html",
+    "outline.html"
+  ],
+  "pages": [
+    "login.html",
+    "dashboard.html"
+  ],
+  "checkboxes": [
+    "circle.html",
+    "square.html"
+  ],
+  "toggles": [
+    "vertical.html",
+    "horizontal.html"
+  ],
+  "inputs": [
+    "withbutton.html",
+    "floating.html"
+  ],
+  "forms": [
+    "contact.html",
+    "signup.html"
+  ],
+  "patterns": [
+    "modal.html",
+    "dropdown.html"
+  ],
+  "tooltips": [
+    "hover.html",
+    "right.html"
+  ],
+  "others": [
+    "badge.html",
+    "alert.html"
+  ]
+}
