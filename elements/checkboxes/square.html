@@ -1,0 +1,23 @@
+<style>
+  .square-check {
+    position: relative;
+  }
+  .square-check input {
+    position: absolute;
+    opacity: 0;
+  }
+  .square-mark {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: #444;
+    display: inline-block;
+  }
+  .square-check input:checked + .square-mark {
+    background: #3b82f6;
+  }
+</style>
+<label class="square-check">
+  <input type="checkbox">
+  <span class="square-mark"></span>
+</label>
