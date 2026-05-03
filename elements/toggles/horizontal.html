@@ -1,0 +1,29 @@
+<style>
+  .h-toggle {
+    width: 60px;
+    height: 30px;
+    background: #888;
+    border-radius: 30px;
+    position: relative;
+    cursor: pointer;
+    display: inline-block;
+  }
+  .h-circle {
+    width: 26px;
+    height: 26px;
+    background: white;
+    border-radius: 50%;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    transition: 0.3s;
+  }
+  #hor-toggle:checked + .h-toggle .h-circle {
+    left: 32px;
+    background: #41a63c;
+  }
+</style>
+<input type="checkbox" id="hor-toggle" hidden>
+<label for="hor-toggle" class="h-toggle">
+  <div class="h-circle"></div>
+</label>
