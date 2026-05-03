@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>axui · component library</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .card-hover:hover { transform: translateY(-2px); box-shadow: 0 20px 25px -12px rgba(0,0,0,0.1); }
+    pre { white-space: pre-wrap; word-break: break-word; font-family: 'Courier New', monospace; font-size: 0.75rem; }
+    .preview-area > * { max-width: 100%; }
+    .loading-spinner {
+      width: 48px;
+      height: 48px;
+      border: 3px solid #e2e8f0;
+      border-radius: 50%;
+      border-top-color: #3b82f6;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .loading-pulse {
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 1; }
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 to-gray-100 font-sans antialiased">
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+  
+  <div class="text-center mb-12 md:mb-16">
+    <h1 class="text-7xl md:text-8xl lg:text-9xl font-black tracking-tighter">
+      <span class="bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600" style="text-shadow: 2px 2px 0 rgba(0,0,0,0.05); -webkit-text-stroke: 1.5px rgba(0,0,0,0.15);">
+        AXUI
+      </span>
+    </h1>
+    <p class="text-gray-500 text-lg md:text-xl mt-3 tracking-wide font-medium border-b border-gray-200 inline-block pb-1 px-2">
+      big ui library of components
+    </p>
+  </div>
+
+  <div class="flex flex-col lg:flex-row gap-8">
+    <aside class="lg:w-72 flex-shrink-0">
+      <div class="sticky top-6 bg-white/70 backdrop-blur-sm rounded-2xl border border-gray-200 shadow-sm p-4">
+        <div class="flex items-center gap-2 mb-4 px-1">
+          <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>
+          <h2 class="font-semibold text-gray-700">component families</h2>
+        </div>
+        <div class="space-y-1.5" id="category-list"></div>
+      </div>
+    </aside>
+
+    <main class="flex-1 min-w-0">
+      <div class="mb-5 flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <span class="text-xs font-mono bg-gray-200/70 px-3 py-1 rounded-full text-gray-700">active</span>
+          <span id="category-title" class="ml-2 text-2xl font-bold text-gray-800 capitalize">all</span>
+        </div>
+        <div id="component-count" class="text-sm text-gray-500 bg-white px-3 py-1 rounded-full shadow-sm"></div>
+      </div>
+      <div id="components-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"></div>
+    </main>
+  </div>
+</div>
+
+<script>
+  (function(){
+    const categories = [
+      { id: "all",        display: "all",        folder: null },
+      { id: "loaders",    display: "loaders",    folder: "loaders" },
+      { id: "cards",      display: "cards",      folder: "cards" },
+      { id: "buttons",    display: "buttons",    folder: "buttons" },
+      { id: "pages",      display: "pages",      folder: "pages" },
+      { id: "checkboxes", display: "checkboxes", folder: "checkboxes" },
+      { id: "toggles",    display: "toggles",    folder: "toggles" },
+      { id: "inputs",     display: "inputs",     folder: "inputs" },
+      { id: "forms",      display: "forms",      folder: "forms" },
+      { id: "patterns",   display: "patterns",   folder: "patterns" },
+      { id: "tooltips",   display: "tooltips",   folder: "tooltips" },
+      { id: "others",     display: "others",     folder: "others" }
+    ];
+
+    let allComponents = {};
+
+    function buildsidebar() {
+      const container = document.getElementById("category-list");
+      container.innerHTML = "";
+      categories.forEach(cat => {
+        const btn = document.createElement("button");
+        btn.className = "w-full text-left px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-all capitalize";
+        btn.textContent = cat.display;
+        btn.onclick = () => loadcategory(cat.id);
+        container.appendChild(btn);
+      });
+    }
+
+    async function getfolderfilelist(folderName) {
+      try {
+        const response = await fetch(`elements/${folderName}/`);
+        if (!response.ok) return [];
+        const text = await response.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, 'text/html');
+        const links = doc.querySelectorAll('a');
+        const files = [];
+        for (const link of links) {
+          const href = link.getAttribute('href');
+          if (href && href.endsWith('.html')) {
+            files.push(href);
+          }
+        }
+        return files;
+      } catch (err) {
+        return [];
+      }
+    }
+
+    function extractcreatorfromcomment(content) {
+      const lines = content.split('\n');
+      for (let i = 0; i < lines.length && i < 5; i++) {
+        const line = lines[i].trim();
+        const htmlMatch = line.match(/<!--\s*creator\s*=\s*["']([^"']+)["']\s*-->/i);
+        if (htmlMatch) {
+          return { creator: htmlMatch[1], line: lines[i] };
+        }
+        const jsMatch = line.match(/\/\/\s*creator\s*=\s*["']([^"']+)["']/i);
+        if (jsMatch) {
+          return { creator: jsMatch[1], line: lines[i] };
+        }
+      }
+      return { creator: null, line: null };
+    }
+
+    async function fetchfromfolder(folderName, categoryId) {
+      try {
+        const files = await getfolderfilelist(folderName);
+        const components = [];
+        
+        for (const file of files) {
+          const fileResponse = await fetch(`elements/${folderName}/${file}`);
+          if (fileResponse.ok) {
+            let content = await fileResponse.text();
+            let creator = "unlabeled";
+            const creatorData = extractcreatorfromcomment(content);
+            if (creatorData.creator) {
+              creator = creatorData.creator;
+              content = content.replace(creatorData.line, '');
+            }
+            const compName = file.replace('.html', '').replace(/-/g, ' ');
+            
+            let finalHtml = content;
+            
+            const subFolderPath = `elements/${folderName}`;
+            const subResponse = await fetch(`${subFolderPath}/`);
+            if (subResponse.ok) {
+              const subText = await subResponse.text();
+              const subParser = new DOMParser();
+              const subDoc = subParser.parseFromString(subText, 'text/html');
+              const subLinks = subDoc.querySelectorAll('a');
+              for (const subLink of subLinks) {
+                const subHref = subLink.getAttribute('href');
+                if (subHref && (subHref.endsWith('.css') || subHref.endsWith('.js')) && subHref !== file) {
+                  const assetResponse = await fetch(`${subFolderPath}/${subHref}`);
+                  if (assetResponse.ok) {
+                    const assetContent = await assetResponse.text();
+                    if (subHref.endsWith('.css')) {
+                      finalHtml = `<style>${assetContent}</style>\n${finalHtml}`;
+                    } else if (subHref.endsWith('.js')) {
+                      finalHtml = `${finalHtml}\n<script>${assetContent}<\/script>`;
+                    }
+                  }
+                }
+              }
+            }
+            
+            components.push({
+              name: compName,
+              html: finalHtml,
+              fileName: file,
+              creator: creator,
+              categoryId: categoryId
+            });
+          }
+        }
+        return components;
+      } catch (err) {
+        return [];
+      }
+    }
+
+    async function loadall() {
+      const results = {};
+      const promises = [];
+      for (const cat of categories) {
+        if (cat.folder === null) continue;
+        const promise = fetchfromfolder(cat.folder, cat.id).then(comps => {
+          results[cat.id] = comps;
+        });
+        promises.push(promise);
+      }
+      await Promise.all(promises);
+      return results;
+    }
+
+    function makecard(component, categoryId) {
+      const card = document.createElement("div");
+      card.className = "bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm card-hover transition-all flex flex-col";
+      
+      const header = document.createElement("div");
+      header.className = "px-4 py-2 bg-gray-50 border-b border-gray-100 flex justify-between items-center";
+      header.innerHTML = `<h3 class="font-medium text-gray-800 text-sm capitalize truncate">${component.name}</h3><span class="text-xs text-gray-400 bg-gray-200 px-2 py-0.5 rounded">${categoryId}</span>`;
+      
+      const body = document.createElement("div");
+      body.className = "p-4 flex-1";
+      
+      const previewArea = document.createElement("div");
+      previewArea.className = "preview-area flex justify-center items-center min-h-[120px]";
+      previewArea.innerHTML = component.html;
+      
+      const codeArea = document.createElement("div");
+      codeArea.className = "hidden";
+      const pre = document.createElement("pre");
+      pre.className = "bg-gray-900 text-gray-100 p-3 rounded text-xs overflow-auto max-h-64";
+      pre.textContent = component.html;
+      codeArea.appendChild(pre);
+      
+      body.appendChild(previewArea);
+      body.appendChild(codeArea);
+      
+      const actions = document.createElement("div");
+      actions.className = "px-4 py-2 bg-gray-50 border-t border-gray-100 flex justify-between items-center gap-2";
+      
+      const viewGroup = document.createElement("div");
+      viewGroup.className = "flex gap-2";
+      const previewBtn = document.createElement("button");
+      previewBtn.textContent = "preview";
+      previewBtn.className = "text-xs px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 transition";
+      const codeBtn = document.createElement("button");
+      codeBtn.textContent = "code";
+      codeBtn.className = "text-xs px-3 py-1 rounded bg-gray-300 text-gray-700 hover:bg-gray-400 transition";
+      viewGroup.appendChild(previewBtn);
+      viewGroup.appendChild(codeBtn);
+      
+      const creatorSpan = document.createElement("span");
+      creatorSpan.className = "text-xs text-gray-400";
+      creatorSpan.textContent = `by ${component.creator}`;
+      
+      const codeActions = document.createElement("div");
+      codeActions.className = "flex gap-2";
+      const copyBtn = document.createElement("button");
+      copyBtn.textContent = "copy";
+      copyBtn.className = "text-xs px-2 py-1 rounded bg-gray-200 hover:bg-gray-300 transition";
+      const downloadBtn = document.createElement("button");
+      downloadBtn.textContent = "download";
+      downloadBtn.className = "text-xs px-2 py-1 rounded bg-gray-200 hover:bg-gray-300 transition";
+      codeActions.appendChild(copyBtn);
+      codeActions.appendChild(downloadBtn);
+      
+      actions.appendChild(viewGroup);
+      actions.appendChild(creatorSpan);
+      actions.appendChild(codeActions);
+      
+      card.appendChild(header);
+      card.appendChild(body);
+      card.appendChild(actions);
+      
+      let isPreview = true;
+      previewBtn.onclick = () => {
+        if (isPreview) return;
+        isPreview = true;
+        previewArea.classList.remove("hidden");
+        codeArea.classList.add("hidden");
+        previewBtn.className = "text-xs px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 transition";
+        codeBtn.className = "text-xs px-3 py-1 rounded bg-gray-300 text-gray-700 hover:bg-gray-400 transition";
+      };
+      codeBtn.onclick = () => {
+        if (!isPreview) return;
+        isPreview = false;
+        previewArea.classList.add("hidden");
+        codeArea.classList.remove("hidden");
+        codeBtn.className = "text-xs px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 transition";
+        previewBtn.className = "text-xs px-3 py-1 rounded bg-gray-300 text-gray-700 hover:bg-gray-400 transition";
+      };
+      
+      copyBtn.onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(component.html);
+          const original = copyBtn.textContent;
+          copyBtn.textContent = "copied!";
+          setTimeout(() => copyBtn.textContent = original, 1500);
+        } catch (err) {
+          copyBtn.textContent = "error";
+          setTimeout(() => copyBtn.textContent = "copy", 1000);
+        }
+      };
+      
+      downloadBtn.onclick = () => {
+        const blob = new Blob([component.html], { type: "text/html" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = component.fileName || `${component.name.replace(/ /g, "-")}.html`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      };
+      
+      return card;
+    }
+
+    function rendercategory(categoryId) {
+      const grid = document.getElementById("components-grid");
+      const titleSpan = document.getElementById("category-title");
+      const countSpan = document.getElementById("component-count");
+      
+      let componentsList = [];
+      if (categoryId === "all") {
+        for (const id in allComponents) {
+          componentsList.push(...allComponents[id].map(comp => ({ ...comp, categoryId: id })));
+        }
+        titleSpan.textContent = "all";
+      } else {
+        componentsList = (allComponents[categoryId] || []).map(comp => ({ ...comp, categoryId: categoryId }));
+        const catObj = categories.find(c => c.id === categoryId);
+        titleSpan.textContent = catObj ? catObj.display : categoryId;
+      }
+      
+      countSpan.textContent = `${componentsList.length} component${componentsList.length !== 1 ? "s" : ""}`;
+      
+      if (componentsList.length === 0) {
+        grid.innerHTML = `<div class="col-span-full text-center py-16 text-gray-400">no components found in this folder</div>`;
+        return;
+      }
+      
+      grid.innerHTML = "";
+      componentsList.forEach(comp => {
+        const card = makecard(comp, comp.categoryId);
+        grid.appendChild(card);
+      });
+    }
+
+    async function loadcategory(categoryId) {
+      rendercategory(categoryId);
+    }
+
+    async function init() {
+      buildsidebar();
+      const grid = document.getElementById("components-grid");
+      grid.innerHTML = `
+        <div class="col-span-full flex flex-col items-center justify-center py-16 gap-4">
+          <div class="loading-spinner"></div>
+          <p class="text-gray-500 text-base font-medium loading-pulse">loading elements</p>
+          <p class="text-gray-400 text-sm">fetching components from repository</p>
+        </div>
+      `;
+      
+      allComponents = await loadall();
+      rendercategory("all");
+    }
+
+    init();
+  })();
+</script>
+
+</body>
+</html>
