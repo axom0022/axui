@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>axui · component library</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
   <style>
     .card-hover:hover { transform: translateY(-2px); box-shadow: 0 20px 25px -12px rgba(0,0,0,0.1); }
     pre { white-space: pre-wrap; word-break: break-word; font-family: 'Courier New', monospace; font-size: 0.75rem; background: #1e1e1e; color: #d4d4d4; padding: 1rem; border-radius: 0.5rem; overflow: auto; max-height: 300px; }
@@ -94,19 +93,56 @@
       });
     }
 
-    async function loadyaml() {
-      const response = await fetch('components.yaml');
-      const yamlText = await response.text();
-      const data = jsyaml.load(yamlText);
-      return data;
+    function extractcreatorfromhtml(content) {
+      const lines = content.split('\n');
+      for (let i = 0; i < lines.length && i < 5; i++) {
+        const line = lines[i].trim();
+        const htmlMatch = line.match(/<!--\s*creator\s*=\s*["']([^"']+)["']\s*-->/i);
+        if (htmlMatch) {
+          return { creator: htmlMatch[1], line: lines[i] };
+        }
+        const jsMatch = line.match(/\/\/\s*creator\s*=\s*["']([^"']+)["']/i);
+        if (jsMatch) {
+          return { creator: jsMatch[1], line: lines[i] };
+        }
+      }
+      return { creator: null, line: null };
+    }
+
+    async function loadcomponents() {
+      const manifestRes = await fetch('manifest.json');
+      const manifest = await manifestRes.json();
+      
+      const results = {};
+      
+      for (const category of Object.keys(manifest)) {
+        results[category] = [];
+        for (const filename of manifest[category]) {
+          const fileRes = await fetch(`elements/${category}/${filename}`);
+          if (fileRes.ok) {
+            let content = await fileRes.text();
+            let creator = "unlabeled";
+            const creatorData = extractcreatorfromhtml(content);
+            if (creatorData.creator) {
+              creator = creatorData.creator;
+              content = content.replace(creatorData.line, '');
+            }
+            const name = filename.replace('.html', '').replace(/-/g, ' ');
+            
+            results[category].push({
+              name: name,
+              html: content,
+              filename: filename,
+              creator: creator
+            });
+          }
+        }
+      }
+      
+      return results;
     }
 
     function makecard(component, categoryId) {
-      let fullHtml = '';
-      if (component.css) fullHtml += `<style>${component.css}</style>`;
-      fullHtml += component.html;
-      if (component.js) fullHtml += `<script>${component.js}<\/script>`;
-      
       const card = document.createElement("div");
       card.className = "bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm card-hover transition-all flex flex-col";
       
@@ -119,12 +155,12 @@
       
       const previewArea = document.createElement("div");
       previewArea.className = "preview-area flex justify-center items-center min-h-[150px]";
-      previewArea.innerHTML = fullHtml;
+      previewArea.innerHTML = component.html;
       
       const codeArea = document.createElement("div");
       codeArea.className = "hidden";
       const pre = document.createElement("pre");
-      pre.textContent = fullHtml;
+      pre.textContent = component.html;
       codeArea.appendChild(pre);
       
       body.appendChild(previewArea);
@@ -146,7 +182,7 @@
       
       const creatorSpan = document.createElement("span");
       creatorSpan.className = "text-xs text-gray-400";
-      creatorSpan.textContent = `by ${component.creator || 'unlabeled'}`;
+      creatorSpan.textContent = `by ${component.creator}`;
       
       const codeActions = document.createElement("div");
       codeActions.className = "flex gap-2";
@@ -187,7 +223,7 @@
       
       copyBtn.onclick = async () => {
         try {
-          await navigator.clipboard.writeText(fullHtml);
+          await navigator.clipboard.writeText(component.html);
           const original = copyBtn.textContent;
           copyBtn.textContent = "copied!";
           setTimeout(() => copyBtn.textContent = original, 1500);
@@ -198,11 +234,11 @@
       };
       
       downloadBtn.onclick = () => {
-        const blob = new Blob([fullHtml], { type: "text/html" });
+        const blob = new Blob([component.html], { type: "text/html" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `${component.name.replace(/ /g, "-")}.html`;
+        a.download = component.filename || `${component.name.replace(/ /g, "-")}.html`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -226,9 +262,8 @@
         }
         titleSpan.textContent = "all";
       } else {
-        const catKey = categories.find(c => c.id === categoryId)?.key;
-        if (catKey && allComponents[catKey]) {
-          componentsList = allComponents[catKey].map(comp => ({ ...comp, categoryId: catKey }));
+        if (allComponents[categoryId]) {
+          componentsList = allComponents[categoryId].map(comp => ({ ...comp, categoryId: categoryId }));
         }
         titleSpan.textContent = categoryId;
       }
@@ -254,11 +289,11 @@
         <div class="col-span-full flex flex-col items-center justify-center py-16 gap-4">
           <div class="loading-spinner"></div>
           <p class="text-gray-500 text-base font-medium">loading components</p>
-          <p class="text-gray-400 text-sm">fetching from components.yaml</p>
+          <p class="text-gray-400 text-sm">fetching from manifest.json</p>
         </div>
       `;
       
-      allComponents = await loadyaml();
+      allComponents = await loadcomponents();
       rendercategory("all");
     }
 
@@ -267,4 +302,4 @@
 </script>
 
 </body>
-</html>
+  </html>
