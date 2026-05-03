@@ -95,18 +95,18 @@
     }
 
     async function loadyaml() {
-      try {
-        const response = await fetch('components.yaml');
-        const yamlText = await response.text();
-        const data = jsyaml.load(yamlText);
-        return data;
-      } catch (err) {
-        console.error('error loading yaml:', err);
-        return {};
-      }
+      const response = await fetch('components.yaml');
+      const yamlText = await response.text();
+      const data = jsyaml.load(yamlText);
+      return data;
     }
 
     function makecard(component, categoryId) {
+      let fullHtml = '';
+      if (component.css) fullHtml += `<style>${component.css}</style>`;
+      fullHtml += component.html;
+      if (component.js) fullHtml += `<script>${component.js}<\/script>`;
+      
       const card = document.createElement("div");
       card.className = "bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm card-hover transition-all flex flex-col";
       
@@ -119,12 +119,12 @@
       
       const previewArea = document.createElement("div");
       previewArea.className = "preview-area flex justify-center items-center min-h-[150px]";
-      previewArea.innerHTML = component.html;
+      previewArea.innerHTML = fullHtml;
       
       const codeArea = document.createElement("div");
       codeArea.className = "hidden";
       const pre = document.createElement("pre");
-      pre.textContent = component.html;
+      pre.textContent = fullHtml;
       codeArea.appendChild(pre);
       
       body.appendChild(previewArea);
@@ -187,7 +187,7 @@
       
       copyBtn.onclick = async () => {
         try {
-          await navigator.clipboard.writeText(component.html);
+          await navigator.clipboard.writeText(fullHtml);
           const original = copyBtn.textContent;
           copyBtn.textContent = "copied!";
           setTimeout(() => copyBtn.textContent = original, 1500);
@@ -198,7 +198,7 @@
       };
       
       downloadBtn.onclick = () => {
-        const blob = new Blob([component.html], { type: "text/html" });
+        const blob = new Blob([fullHtml], { type: "text/html" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -258,8 +258,7 @@
         </div>
       `;
       
-      const data = await loadyaml();
-      allComponents = data;
+      allComponents = await loadyaml();
       rendercategory("all");
     }
 
@@ -268,4 +267,4 @@
 </script>
 
 </body>
-  </html>
+</html>
