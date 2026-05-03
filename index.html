@@ -5,10 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>axui · component library</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
   <style>
     .card-hover:hover { transform: translateY(-2px); box-shadow: 0 20px 25px -12px rgba(0,0,0,0.1); }
-    pre { white-space: pre-wrap; word-break: break-word; font-family: 'Courier New', monospace; font-size: 0.75rem; }
+    pre { white-space: pre-wrap; word-break: break-word; font-family: 'Courier New', monospace; font-size: 0.75rem; background: #1e1e1e; color: #d4d4d4; padding: 1rem; border-radius: 0.5rem; overflow: auto; max-height: 300px; }
     .preview-area > * { max-width: 100%; }
+    .preview-area { display: flex; justify-content: center; align-items: center; min-height: 150px; }
     .loading-spinner {
       width: 48px;
       height: 48px;
@@ -19,13 +21,6 @@
     }
     @keyframes spin {
       to { transform: rotate(360deg); }
-    }
-    .loading-pulse {
-      animation: pulse 1.5s ease-in-out infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 0.4; }
-      50% { opacity: 1; }
     }
   </style>
 </head>
@@ -71,18 +66,18 @@
 <script>
   (function(){
     const categories = [
-      { id: "all",        display: "all",        folder: null },
-      { id: "loaders",    display: "loaders",    folder: "loaders" },
-      { id: "cards",      display: "cards",      folder: "cards" },
-      { id: "buttons",    display: "buttons",    folder: "buttons" },
-      { id: "pages",      display: "pages",      folder: "pages" },
-      { id: "checkboxes", display: "checkboxes", folder: "checkboxes" },
-      { id: "toggles",    display: "toggles",    folder: "toggles" },
-      { id: "inputs",     display: "inputs",     folder: "inputs" },
-      { id: "forms",      display: "forms",      folder: "forms" },
-      { id: "patterns",   display: "patterns",   folder: "patterns" },
-      { id: "tooltips",   display: "tooltips",   folder: "tooltips" },
-      { id: "others",     display: "others",     folder: "others" }
+      { id: "all", display: "all", key: null },
+      { id: "loaders", display: "loaders", key: "loaders" },
+      { id: "cards", display: "cards", key: "cards" },
+      { id: "buttons", display: "buttons", key: "buttons" },
+      { id: "pages", display: "pages", key: "pages" },
+      { id: "checkboxes", display: "checkboxes", key: "checkboxes" },
+      { id: "toggles", display: "toggles", key: "toggles" },
+      { id: "inputs", display: "inputs", key: "inputs" },
+      { id: "forms", display: "forms", key: "forms" },
+      { id: "patterns", display: "patterns", key: "patterns" },
+      { id: "tooltips", display: "tooltips", key: "tooltips" },
+      { id: "others", display: "others", key: "others" }
     ];
 
     let allComponents = {};
@@ -94,117 +89,21 @@
         const btn = document.createElement("button");
         btn.className = "w-full text-left px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-all capitalize";
         btn.textContent = cat.display;
-        btn.onclick = () => loadcategory(cat.id);
+        btn.onclick = () => rendercategory(cat.id);
         container.appendChild(btn);
       });
     }
 
-    async function getfolderfilelist(folderName) {
+    async function loadyaml() {
       try {
-        const response = await fetch(`elements/${folderName}/`);
-        if (!response.ok) return [];
-        const text = await response.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(text, 'text/html');
-        const links = doc.querySelectorAll('a');
-        const files = [];
-        for (const link of links) {
-          const href = link.getAttribute('href');
-          if (href && href.endsWith('.html')) {
-            files.push(href);
-          }
-        }
-        return files;
+        const response = await fetch('components.yaml');
+        const yamlText = await response.text();
+        const data = jsyaml.load(yamlText);
+        return data;
       } catch (err) {
-        return [];
+        console.error('error loading yaml:', err);
+        return {};
       }
-    }
-
-    function extractcreatorfromcomment(content) {
-      const lines = content.split('\n');
-      for (let i = 0; i < lines.length && i < 5; i++) {
-        const line = lines[i].trim();
-        const htmlMatch = line.match(/<!--\s*creator\s*=\s*["']([^"']+)["']\s*-->/i);
-        if (htmlMatch) {
-          return { creator: htmlMatch[1], line: lines[i] };
-        }
-        const jsMatch = line.match(/\/\/\s*creator\s*=\s*["']([^"']+)["']/i);
-        if (jsMatch) {
-          return { creator: jsMatch[1], line: lines[i] };
-        }
-      }
-      return { creator: null, line: null };
-    }
-
-    async function fetchfromfolder(folderName, categoryId) {
-      try {
-        const files = await getfolderfilelist(folderName);
-        const components = [];
-        
-        for (const file of files) {
-          const fileResponse = await fetch(`elements/${folderName}/${file}`);
-          if (fileResponse.ok) {
-            let content = await fileResponse.text();
-            let creator = "unlabeled";
-            const creatorData = extractcreatorfromcomment(content);
-            if (creatorData.creator) {
-              creator = creatorData.creator;
-              content = content.replace(creatorData.line, '');
-            }
-            const compName = file.replace('.html', '').replace(/-/g, ' ');
-            
-            let finalHtml = content;
-            
-            const subFolderPath = `elements/${folderName}`;
-            const subResponse = await fetch(`${subFolderPath}/`);
-            if (subResponse.ok) {
-              const subText = await subResponse.text();
-              const subParser = new DOMParser();
-              const subDoc = subParser.parseFromString(subText, 'text/html');
-              const subLinks = subDoc.querySelectorAll('a');
-              for (const subLink of subLinks) {
-                const subHref = subLink.getAttribute('href');
-                if (subHref && (subHref.endsWith('.css') || subHref.endsWith('.js')) && subHref !== file) {
-                  const assetResponse = await fetch(`${subFolderPath}/${subHref}`);
-                  if (assetResponse.ok) {
-                    const assetContent = await assetResponse.text();
-                    if (subHref.endsWith('.css')) {
-                      finalHtml = `<style>${assetContent}</style>\n${finalHtml}`;
-                    } else if (subHref.endsWith('.js')) {
-                      finalHtml = `${finalHtml}\n<script>${assetContent}<\/script>`;
-                    }
-                  }
-                }
-              }
-            }
-            
-            components.push({
-              name: compName,
-              html: finalHtml,
-              fileName: file,
-              creator: creator,
-              categoryId: categoryId
-            });
-          }
-        }
-        return components;
-      } catch (err) {
-        return [];
-      }
-    }
-
-    async function loadall() {
-      const results = {};
-      const promises = [];
-      for (const cat of categories) {
-        if (cat.folder === null) continue;
-        const promise = fetchfromfolder(cat.folder, cat.id).then(comps => {
-          results[cat.id] = comps;
-        });
-        promises.push(promise);
-      }
-      await Promise.all(promises);
-      return results;
     }
 
     function makecard(component, categoryId) {
@@ -219,13 +118,12 @@
       body.className = "p-4 flex-1";
       
       const previewArea = document.createElement("div");
-      previewArea.className = "preview-area flex justify-center items-center min-h-[120px]";
+      previewArea.className = "preview-area flex justify-center items-center min-h-[150px]";
       previewArea.innerHTML = component.html;
       
       const codeArea = document.createElement("div");
       codeArea.className = "hidden";
       const pre = document.createElement("pre");
-      pre.className = "bg-gray-900 text-gray-100 p-3 rounded text-xs overflow-auto max-h-64";
       pre.textContent = component.html;
       codeArea.appendChild(pre);
       
@@ -248,7 +146,7 @@
       
       const creatorSpan = document.createElement("span");
       creatorSpan.className = "text-xs text-gray-400";
-      creatorSpan.textContent = `by ${component.creator}`;
+      creatorSpan.textContent = `by ${component.creator || 'unlabeled'}`;
       
       const codeActions = document.createElement("div");
       codeActions.className = "flex gap-2";
@@ -304,7 +202,7 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = component.fileName || `${component.name.replace(/ /g, "-")}.html`;
+        a.download = `${component.name.replace(/ /g, "-")}.html`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -321,20 +219,24 @@
       
       let componentsList = [];
       if (categoryId === "all") {
-        for (const id in allComponents) {
-          componentsList.push(...allComponents[id].map(comp => ({ ...comp, categoryId: id })));
+        for (const key in allComponents) {
+          if (Array.isArray(allComponents[key])) {
+            componentsList.push(...allComponents[key].map(comp => ({ ...comp, categoryId: key })));
+          }
         }
         titleSpan.textContent = "all";
       } else {
-        componentsList = (allComponents[categoryId] || []).map(comp => ({ ...comp, categoryId: categoryId }));
-        const catObj = categories.find(c => c.id === categoryId);
-        titleSpan.textContent = catObj ? catObj.display : categoryId;
+        const catKey = categories.find(c => c.id === categoryId)?.key;
+        if (catKey && allComponents[catKey]) {
+          componentsList = allComponents[catKey].map(comp => ({ ...comp, categoryId: catKey }));
+        }
+        titleSpan.textContent = categoryId;
       }
       
       countSpan.textContent = `${componentsList.length} component${componentsList.length !== 1 ? "s" : ""}`;
       
       if (componentsList.length === 0) {
-        grid.innerHTML = `<div class="col-span-full text-center py-16 text-gray-400">no components found in this folder</div>`;
+        grid.innerHTML = `<div class="col-span-full text-center py-16 text-gray-400">no components found in this category</div>`;
         return;
       }
       
@@ -345,22 +247,19 @@
       });
     }
 
-    async function loadcategory(categoryId) {
-      rendercategory(categoryId);
-    }
-
     async function init() {
       buildsidebar();
       const grid = document.getElementById("components-grid");
       grid.innerHTML = `
         <div class="col-span-full flex flex-col items-center justify-center py-16 gap-4">
           <div class="loading-spinner"></div>
-          <p class="text-gray-500 text-base font-medium loading-pulse">loading elements</p>
-          <p class="text-gray-400 text-sm">fetching components from repository</p>
+          <p class="text-gray-500 text-base font-medium">loading components</p>
+          <p class="text-gray-400 text-sm">fetching from components.yaml</p>
         </div>
       `;
       
-      allComponents = await loadall();
+      const data = await loadyaml();
+      allComponents = data;
       rendercategory("all");
     }
 
@@ -369,4 +268,4 @@
 </script>
 
 </body>
-</html>
+  </html>
