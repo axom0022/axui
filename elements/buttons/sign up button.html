@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+button {
+  --primary-color: #645bff;
+  --secondary-color: #fff;
+  --hover-color: #111;
+  --arrow-width: 10px;
+  --arrow-stroke: 2px;
+
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 20px;
+  color: var(--secondary-color);
+  padding: 1em 1.8em;
+  background: var(--primary-color);
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.2s background;
+}
+
+button .arrow-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+button .arrow {
+  margin-top: 1px;
+  width: var(--arrow-width);
+  height: var(--arrow-stroke);
+  background: var(--primary-color);
+  position: relative;
+  transition: 0.2s;
+}
+
+button .arrow::before {
+  content: "";
+  position: absolute;
+  border: solid var(--secondary-color);
+  border-width: 0 var(--arrow-stroke) var(--arrow-stroke) 0;
+  top: -3px;
+  right: 3px;
+  padding: 3px;
+  transform: rotate(-45deg);
+  transition: 0.2s;
+}
+
+button:hover {
+  background-color: var(--hover-color);
+}
+
+button:hover .arrow {
+  background: var(--secondary-color);
+}
+
+button:hover .arrow::before {
+  right: 0;
+}
+</style>
+</head>
+<body>
+
+<button>
+  Sign up
+  <div class="arrow-wrapper">
+    <div class="arrow"></div>
+  </div>
+</button>
+
+</body>
+</html>
