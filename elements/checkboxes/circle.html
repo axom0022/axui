@@ -1,0 +1,23 @@
+<style>
+  .circle-check {
+    position: relative;
+  }
+  .circle-check input {
+    position: absolute;
+    opacity: 0;
+  }
+  .circle-mark {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #444;
+    display: inline-block;
+  }
+  .circle-check input:checked + .circle-mark {
+    background: linear-gradient(144deg,#af40ff,#5b42f3,#00ddeb);
+  }
+</style>
+<label class="circle-check">
+  <input type="checkbox">
+  <span class="circle-mark"></span>
+</label>
