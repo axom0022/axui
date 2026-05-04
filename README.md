@@ -2,6 +2,7 @@
 >  is an open source big library of ui elements! 
 to upload your element on our website, contact me on this server [discord](https://discord.com/invite/FgR3MXqZy9)
 
+web : https://axom0022.github.io/axui/
 ### NOTE
 - we only upload high quality ui
 - we upload new elements instantly every few hours
